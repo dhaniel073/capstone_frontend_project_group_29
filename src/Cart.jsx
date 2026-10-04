@@ -130,7 +130,12 @@ export default function Cart() {
                   className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex gap-4 items-center"
                 >
                   <img
-                    src={item.image}
+                    src={
+                      item.imageUrl ||
+                      item.image?.url ||
+                      item.image ||
+                      "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=600&q=80"
+                    }
                     alt={item.name}
                     className="w-20 h-20 rounded-xl object-cover bg-gray-100 flex-shrink-0"
                   />

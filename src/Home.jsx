@@ -1,5 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { getProducts } from "./api";
 
 const INITIAL_PRODUCTS = [
   {
@@ -68,6 +69,8 @@ const CATEGORIES = [
 
 export default function Home() {
   const navigate = useNavigate();
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
   const [cart, setCart] = useState(() => {
@@ -78,6 +81,45 @@ export default function Home() {
     localStorage.getItem("user") || '{"name": "Customer"}',
   );
 
+  // Live Backend Fetch with Local Fallback
+  useEffect(() => {
+    const fetchCatalog = async () => {
+      try {
+        setLoading(true);
+        const res = await getProducts();
+
+        // Normalize backend data format (res, res.data, or res.data.products)
+        const serverProducts = Array.isArray(res)
+          ? res
+          : res.data?.products || res.data || [];
+
+       if (serverProducts.length > 0) {
+  setProducts([...serverProducts, ...INITIAL_PRODUCTS]);
+
+        } else {
+          // If the database is empty, fall back to initial demo catalog
+          const custom = JSON.parse(
+            localStorage.getItem("custom_products") || "[]",
+          );
+          setProducts([...custom, ...INITIAL_PRODUCTS]);
+        }
+      } catch (err) {
+        console.warn(
+          "Backend not reached, using local catalog fallback:",
+          err.message,
+        );
+        const custom = JSON.parse(
+          localStorage.getItem("custom_products") || "[]",
+        );
+        setProducts([...custom, ...INITIAL_PRODUCTS]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchCatalog();
+  }, []);
+
   const handleLogout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
@@ -85,17 +127,18 @@ export default function Home() {
   };
 
   const addToCart = (product) => {
+    const productId = product._id || product.id;
     setCart((prev) => {
-      const existing = prev.find((item) => item.id === product.id);
+      const existing = prev.find((item) => (item._id || item.id) === productId);
       let updated;
       if (existing) {
         updated = prev.map((item) =>
-          item.id === product.id
+          (item._id || item.id) === productId
             ? { ...item, quantity: item.quantity + 1 }
             : item,
         );
       } else {
-        updated = [...prev, { ...product, quantity: 1 }];
+        updated = [...prev, { ...product, id: productId, quantity: 1 }];
       }
       localStorage.setItem("cart", JSON.stringify(updated));
       return updated;
@@ -108,17 +151,12 @@ export default function Home() {
     0,
   );
 
-  // Combine custom admin-added products with the default catalog
-  const customProducts = JSON.parse(
-    localStorage.getItem("custom_products") || "[]",
-  );
-  const ALL_AVAILABLE_PRODUCTS = [...customProducts, ...INITIAL_PRODUCTS];
-
-  const filteredProducts = ALL_AVAILABLE_PRODUCTS.filter((product) => {
+  const filteredProducts = products.filter((product) => {
+    const categoryName = product.category?.name || product.category || "";
     const matchesCategory =
-      selectedCategory === "All" || product.category === selectedCategory;
+      selectedCategory === "All" || categoryName === selectedCategory;
     const matchesSearch = product.name
-      .toLowerCase()
+      ?.toLowerCase()
       .includes(searchQuery.toLowerCase());
     return matchesCategory && matchesSearch;
   });
@@ -185,7 +223,7 @@ export default function Home() {
                   </p>
                   <button
                     onClick={handleLogout}
-                    className="text-[11px] text-red-500 hover:underline font-medium"
+                    className="text-[11px] text-red-500 hover:underline font-medium cursor-pointer"
                   >
                     Log out
                   </button>
@@ -223,7 +261,7 @@ export default function Home() {
               <button
                 key={cat}
                 onClick={() => setSelectedCategory(cat)}
-                className={`px-4 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition ${
+                className={`px-4 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition cursor-pointer ${
                   selectedCategory === cat
                     ? "bg-emerald-600 text-white shadow-sm"
                     : "bg-white text-gray-600 border border-gray-200 hover:border-gray-300"
@@ -237,50 +275,81 @@ export default function Home() {
 
         {/* Products Grid */}
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-20">
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-            {filteredProducts.map((prod) => (
-              <div
-                key={prod.id}
-                className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden flex flex-col hover:shadow-md transition"
-              >
-                <div className="h-44 bg-gray-100 relative overflow-hidden">
-                  <img
-                    src={prod.image}
-                    alt={prod.name}
-                    className="w-full h-full object-cover"
-                  />
-                  <span className="absolute top-3 left-3 bg-white/90 backdrop-blur-sm text-[11px] font-bold text-gray-700 px-2 py-0.5 rounded-md shadow-sm">
-                    {prod.category}
-                  </span>
-                </div>
+          {loading ? (
+            <div className="py-20 text-center">
+              <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-emerald-600 border-t-transparent mb-3"></div>
+              <p className="text-sm font-semibold text-gray-500">
+                Loading supermarket catalog...
+              </p>
+            </div>
+          ) : filteredProducts.length === 0 ? (
+            <div className="py-20 text-center bg-white rounded-2xl border border-gray-100">
+              <p className="text-base font-bold text-gray-800">
+                No products found
+              </p>
+              <p className="text-xs text-gray-500 mt-1">
+                Try another category or clear your search query.
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+              {filteredProducts.map((prod) => {
+                const prodKey = prod._id || prod.id;
+                const imageUrl =
+                  prod.imageUrl ||
+                  prod.image?.url ||
+                  prod.image ||
+                  "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=600&q=80";
+                const catLabel =
+                  prod.category?.name || prod.category || "General";
 
-                <div className="p-4 flex-1 flex flex-col justify-between">
-                  <div>
-                    <h3 className="font-bold text-sm text-gray-900 leading-snug line-clamp-1">
-                      {prod.name}
-                    </h3>
-                    <p className="text-xs text-gray-500 mt-0.5">{prod.unit}</p>
-                  </div>
+                return (
+                  <div
+                    key={prodKey}
+                    className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden flex flex-col hover:shadow-md transition"
+                  >
+                    <div className="h-44 bg-gray-100 relative overflow-hidden">
+                      <img
+                        src={imageUrl}
+                        alt={prod.name}
+                        className="w-full h-full object-cover"
+                      />
+                      <span className="absolute top-3 left-3 bg-white/90 backdrop-blur-sm text-[11px] font-bold text-gray-700 px-2 py-0.5 rounded-md shadow-sm">
+                        {catLabel}
+                      </span>
+                    </div>
 
-                  <div className="mt-4 flex items-center justify-between pt-3 border-t border-gray-100">
-                    <span className="text-base font-extrabold text-emerald-700">
-                      ₦{prod.price.toLocaleString()}
-                    </span>
-                    <button
-                      onClick={() => addToCart(prod)}
-                      className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg transition active:scale-95 shadow-sm cursor-pointer"
-                    >
-                      + Add
-                    </button>
+                    <div className="p-4 flex-1 flex flex-col justify-between">
+                      <div>
+                        <h3 className="font-bold text-sm text-gray-900 leading-snug line-clamp-1">
+                          {prod.name}
+                        </h3>
+                        <p className="text-xs text-gray-500 mt-0.5">
+                          {prod.unit || prod.description || "Fresh in store"}
+                        </p>
+                      </div>
+
+                      <div className="mt-4 flex items-center justify-between pt-3 border-t border-gray-100">
+                        <span className="text-base font-extrabold text-emerald-700">
+                          ₦{Number(prod.price || 0).toLocaleString()}
+                        </span>
+                        <button
+                          onClick={() => addToCart(prod)}
+                          className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg transition active:scale-95 shadow-sm cursor-pointer"
+                        >
+                          + Add
+                        </button>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </div>
-            ))}
-          </div>
+                );
+              })}
+            </div>
+          )}
         </main>
       </div>
 
-      {/* Sticky Bottom Bar (Appears when cart has items) */}
+      {/* Sticky Bottom Bar */}
       {totalCartCount > 0 && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-gray-900 text-white px-6 py-3.5 rounded-2xl shadow-2xl flex items-center gap-6 z-40 border border-gray-800">
           <div>
@@ -300,10 +369,9 @@ export default function Home() {
         </div>
       )}
 
-      {/* Comprehensive Store Footer */}
+      {/* Footer */}
       <footer className="bg-white border-t border-gray-200 mt-16 pt-12 pb-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          {/* Service Features Row */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pb-10 border-b border-gray-100">
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-xl">
@@ -346,7 +414,6 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Links & Information Row */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 py-10">
             <div>
               <div className="flex items-center gap-2 mb-3">
@@ -429,7 +496,6 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Bottom Copyright */}
           <div className="pt-6 border-t border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-4 text-[11px] text-gray-400">
             <p>© 2026 Supermarket App (Group 29). All rights reserved.</p>
             <div className="flex gap-4">

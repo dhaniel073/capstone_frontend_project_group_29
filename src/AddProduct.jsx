@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
+import { createProduct } from "./api";
 
 const CATEGORIES = [
   "Fruits & Veggies",
@@ -15,6 +16,8 @@ export default function AddProduct() {
     category: "Fruits & Veggies",
     price: "",
     unit: "",
+    description: "",
+    stock: "10",
   });
   const [imageFile, setImageFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState("");
@@ -35,42 +38,50 @@ export default function AddProduct() {
     setStatusMsg({ type: "", text: "" });
 
     try {
-      const token = localStorage.getItem("token");
+      // 1. Build multipart FormData for Multer & Cloudinary upload pipeline
       const data = new FormData();
       data.append("name", formData.name);
       data.append("category", formData.category);
       data.append("price", formData.price);
-      data.append("unit", formData.unit);
+      data.append("description", formData.description || formData.unit);
+      data.append("stock", formData.stock || "10");
+        data.append("unit",formData.unit);
+       data.append(
+         "sku",
+         formData.sku?.trim() || `SKU-${Date.now().toString().slice(-6)}`,
+       );
       if (imageFile) {
-        data.append("image", imageFile);
+        data.append("image", imageFile); // Matched to upload.single("image") in the backend
       }
 
-      const res = await fetch("http://localhost:5000/api/products", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-        body: data,
+      // 2. Call the centralized Axios helper in src/api.js
+      await createProduct(data);
+
+      setStatusMsg({
+        type: "success",
+        text: "Product published to backend successfully!",
       });
-
-      if (!res.ok) {
-        throw new Error("Failed to upload product to backend");
-      }
-
-      setStatusMsg({ type: "success", text: "Product added successfully!" });
       setTimeout(() => navigate("/home"), 1200);
     } catch (err) {
-      // Fallback for demonstration if endpoint is offline
+        alert(err.response?.data?.message || err.message);
+      console.warn(
+        "Backend upload failed, saving to local catalog fallback:",
+        err.message,
+      );
+
+      // 3. Graceful fallback for local demo or when offline
       const localProduct = {
         id: Date.now(),
         name: formData.name,
         category: formData.category,
         price: Number(formData.price),
         unit: formData.unit,
+        description: formData.description || formData.unit,
         image:
           previewUrl ||
           "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=600&q=80",
       };
+
       const existing = JSON.parse(
         localStorage.getItem("custom_products") || "[]",
       );
@@ -81,9 +92,9 @@ export default function AddProduct() {
 
       setStatusMsg({
         type: "success",
-        text: "Added product to catalog view!",
+        text: "Added product to local catalog view!",
       });
-      setTimeout(() => navigate("/home"), 1200);
+      //setTimeout(() => navigate("/home"), 1200);
     } finally {
       setLoading(false);
     }
@@ -103,7 +114,7 @@ export default function AddProduct() {
           </Link>
           <Link
             to="/home"
-            className="text-xs font-semibold text-emerald-700 hover:underline"
+            className="text-xs font-semibold text-emerald-700 hover:underline cursor-pointer"
           >
             ← Storefront
           </Link>
@@ -116,7 +127,7 @@ export default function AddProduct() {
             Add New Item to Catalog
           </h1>
           <p className="text-xs text-gray-500 mb-6">
-            Upload product details, pricing, and media assets.
+            Upload product details, pricing, stock levels, and media assets.
           </p>
 
           {statusMsg.text && (
@@ -158,7 +169,7 @@ export default function AddProduct() {
                   onChange={(e) =>
                     setFormData({ ...formData, category: e.target.value })
                   }
-                  className="w-full px-3 py-2 text-xs bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-emerald-600"
+                  className="w-full px-3 py-2 text-xs bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-emerald-600 cursor-pointer"
                 >
                   {CATEGORIES.map((c) => (
                     <option key={c} value={c}>
@@ -175,6 +186,7 @@ export default function AddProduct() {
                 <input
                   type="number"
                   required
+                  min="0"
                   placeholder="3500"
                   value={formData.price}
                   onChange={(e) =>
@@ -185,17 +197,51 @@ export default function AddProduct() {
               </div>
             </div>
 
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">
+                  Unit / Packaging
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. 1kg Bag, 500ml Bottle"
+                  value={formData.unit}
+                  onChange={(e) =>
+                    setFormData({ ...formData, unit: e.target.value })
+                  }
+                  className="w-full px-3 py-2 text-xs bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-emerald-600"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">
+                  Available Stock
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  placeholder="10"
+                  value={formData.stock}
+                  onChange={(e) =>
+                    setFormData({ ...formData, stock: e.target.value })
+                  }
+                  className="w-full px-3 py-2 text-xs bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-emerald-600"
+                />
+              </div>
+                      </div>
+                      
+
             <div>
               <label className="block text-xs font-bold text-gray-700 mb-1">
-                Unit / Packaging
+                Description (Optional)
               </label>
-              <input
-                type="text"
-                required
-                placeholder="e.g. 1kg Bag, 500ml Bottle"
-                value={formData.unit}
+              <textarea
+                rows="2"
+                placeholder="Product description and details..."
+                value={formData.description}
                 onChange={(e) =>
-                  setFormData({ ...formData, unit: e.target.value })
+                  setFormData({ ...formData, description: e.target.value })
                 }
                 className="w-full px-3 py-2 text-xs bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-emerald-600"
               />
@@ -209,7 +255,7 @@ export default function AddProduct() {
                 type="file"
                 accept="image/*"
                 onChange={handleImageChange}
-                className="w-full text-xs text-gray-500 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100"
+                className="w-full text-xs text-gray-500 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100 cursor-pointer"
               />
               {previewUrl && (
                 <div className="mt-3">
@@ -225,9 +271,11 @@ export default function AddProduct() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl transition cursor-pointer disabled:opacity-50"
+              className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl transition cursor-pointer disabled:opacity-50 active:scale-98 shadow-sm"
             >
-              {loading ? "Uploading..." : "Publish Product to Catalog"}
+              {loading
+                ? "Uploading to Cloudinary..."
+                : "Publish Product to Catalog"}
             </button>
           </form>
         </div>
