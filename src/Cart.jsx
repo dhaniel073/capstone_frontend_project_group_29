@@ -1,45 +1,164 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
+import {
+  getCart,
+  addOneToCart,
+  removeOneFromCart,
+  deleteFromCart,
+} from "./api";
 
 export default function Cart() {
   const navigate = useNavigate();
-  const [cart, setCart] = useState([]);
+  const [cart, setCart] = useState(() => {
+    return JSON.parse(localStorage.getItem("cart") || "[]");
+  });
+  const [loading, setLoading] = useState(true);
+  const [updatingId, setUpdatingId] = useState(null);
+  const [errorMessage, setErrorMessage] = useState("");
+
   const [promoCode, setPromoCode] = useState("");
   const [discount, setDiscount] = useState(0);
   const [promoError, setPromoError] = useState("");
 
-  // Load existing cart items from localStorage on mount
+  const getCleanProductId = (item) => {
+    if (!item) return null;
+    if (typeof item.product === "object" && item.product?._id) {
+      return item.product._id;
+    }
+    if (typeof item.product === "string") {
+      return item.product;
+    }
+    return item.productId || item.id || item._id;
+  };
+
+  const parseServerCart = (res) => {
+    return (
+      res?.data?.cart?.items ||
+      res?.data?.items ||
+      res?.cart?.items ||
+      res?.items ||
+      (Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : [])
+    );
+  };
+
+  const fetchLiveCart = async () => {
+    try {
+      setErrorMessage("");
+      const res = await getCart();
+      const serverItems = parseServerCart(res);
+
+      if (serverItems && serverItems.length > 0) {
+        setCart(serverItems);
+        localStorage.setItem("cart", JSON.stringify(serverItems));
+      } else {
+        const local = JSON.parse(localStorage.getItem("cart") || "[]");
+        setCart(local);
+      }
+    } catch (err) {
+      console.error("Cart fetch error:", err.message);
+      const local = JSON.parse(localStorage.getItem("cart") || "[]");
+      setCart(local);
+
+      if (err.response?.status === 401 || err.response?.status === 403) {
+        setErrorMessage(
+          "Please log in as a customer to sync your cart with the server.",
+        );
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const savedCart = JSON.parse(localStorage.getItem("cart") || "[]");
-    setCart(savedCart);
+    fetchLiveCart();
   }, []);
 
-  // Sync to localStorage whenever cart changes
-  const updateStorage = (updatedCart) => {
-    setCart(updatedCart);
-    localStorage.setItem("cart", JSON.stringify(updatedCart));
-  };
+  const handleClearCart = async () => {
+    try {
+    
+      setCart([]);
+      localStorage.removeItem("cart");
 
-  const handleQuantity = (id, delta) => {
-    const updated = cart
-      .map((item) => {
-        if (item.id === id) {
-          const newQty = item.quantity + delta;
-          return newQty > 0 ? { ...item, quantity: newQty } : null;
+      for (const item of cart) {
+        const pId = getCleanProductId(item);
+        if (pId) {
+          await deleteFromCart(pId).catch(() => {});
         }
-        return item;
-      })
-      .filter(Boolean);
-    updateStorage(updated);
+      }
+    } catch (err) {
+      console.error("Failed to clear cart:", err.message);
+    }
   };
 
-  const removeItem = (id) => {
-    const updated = cart.filter((item) => item.id !== id);
-    updateStorage(updated);
+  const handleAddQuantity = async (productId) => {
+    try {
+      setUpdatingId(productId);
+      setCart((prev) => {
+        const updated = prev.map((item) => {
+          const id = getCleanProductId(item);
+          return id === productId
+            ? { ...item, quantity: (item.quantity || 1) + 1 }
+            : item;
+        });
+        localStorage.setItem("cart", JSON.stringify(updated));
+        return updated;
+      });
+
+      await addOneToCart(productId);
+      await fetchLiveCart();
+    } catch (err) {
+      console.error("Failed to add one:", err.message);
+    } finally {
+      setUpdatingId(null);
+    }
   };
 
-  const clearCart = () => {
-    updateStorage([]);
+  const handleRemoveQuantity = async (productId) => {
+    try {
+      setUpdatingId(productId);
+      setCart((prev) => {
+        const updated = prev
+          .map((item) => {
+            const id = getCleanProductId(item);
+            if (id === productId) {
+              const newQty = (item.quantity || 1) - 1;
+              return newQty > 0 ? { ...item, quantity: newQty } : null;
+            }
+            return item;
+          })
+          .filter(Boolean);
+        localStorage.setItem("cart", JSON.stringify(updated));
+        return updated;
+      });
+
+      await removeOneFromCart(productId);
+      await fetchLiveCart();
+    } catch (err) {
+      console.error("Failed to remove one:", err.message);
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
+  const handleRemoveItem = async (productId) => {
+    try {
+      setUpdatingId(productId);
+      setCart((prev) => {
+        const updated = prev.filter((item) => {
+          const id = getCleanProductId(item);
+          return id !== productId;
+        });
+        localStorage.setItem("cart", JSON.stringify(updated));
+        return updated;
+      });
+
+      await deleteFromCart(productId);
+      await fetchLiveCart();
+    } catch (err) {
+      console.error("Failed to remove item:", err.message);
+    } finally {
+      setUpdatingId(null);
+    }
   };
 
   const applyPromo = (e) => {
@@ -53,17 +172,22 @@ export default function Cart() {
     }
   };
 
-  const subtotal = cart.reduce(
-    (sum, item) => sum + item.price * item.quantity,
-    0,
-  );
+  const subtotal = cart.reduce((sum, item) => {
+    const product = item.product || item;
+    const price = Number(product.price || item.price || 0);
+    const quantity = Number(item.quantity || 1);
+    return sum + price * quantity;
+  }, 0);
+
   const deliveryFee = subtotal > 0 ? 1200 : 0;
   const grandTotal = Math.max(0, subtotal + deliveryFee - discount);
-  const totalItemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
+  const totalItemCount = cart.reduce(
+    (sum, item) => sum + Number(item.quantity || 1),
+    0,
+  );
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-800">
-      {/* Top Navbar */}
       <header className="bg-white border-b border-gray-200 sticky top-0 z-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <Link to="/home" className="flex items-center gap-2">
@@ -91,17 +215,37 @@ export default function Cart() {
               ({totalItemCount} {totalItemCount === 1 ? "item" : "items"})
             </span>
           </h1>
+
           {cart.length > 0 && (
             <button
-              onClick={clearCart}
-              className="text-xs text-red-500 hover:text-red-700 font-medium transition"
+              onClick={handleClearCart}
+              className="text-xs font-semibold text-red-500 hover:text-red-700 hover:underline cursor-pointer"
             >
-              Clear all items
+              Clear Cart
             </button>
           )}
         </div>
 
-        {cart.length === 0 ? (
+        {errorMessage && (
+          <div className="mb-6 p-4 bg-amber-50 border border-amber-200 text-amber-800 rounded-xl text-xs flex justify-between items-center">
+            <span>{errorMessage}</span>
+            <Link
+              to="/login"
+              className="font-bold underline hover:text-amber-950 ml-2"
+            >
+              Sign In
+            </Link>
+          </div>
+        )}
+
+        {loading ? (
+          <div className="py-20 text-center">
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-emerald-600 border-t-transparent mb-3"></div>
+            <p className="text-sm font-semibold text-gray-500">
+              Loading cart contents...
+            </p>
+          </div>
+        ) : cart.length === 0 ? (
           <div className="bg-white rounded-3xl p-12 text-center border border-gray-100 shadow-sm max-w-lg mx-auto">
             <div className="w-20 h-20 bg-emerald-50 rounded-full flex items-center justify-center text-3xl mx-auto mb-4">
               🛒
@@ -122,75 +266,101 @@ export default function Cart() {
           </div>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Items List */}
             <div className="lg:col-span-2 space-y-4">
-              {cart.map((item) => (
-                <div
-                  key={item.id}
-                  className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex gap-4 items-center"
-                >
-                  <img
-                    src={
-                      item.imageUrl ||
-                      item.image?.url ||
-                      item.image ||
-                      "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=600&q=80"
-                    }
-                    alt={item.name}
-                    className="w-20 h-20 rounded-xl object-cover bg-gray-100 flex-shrink-0"
-                  />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <h3 className="font-bold text-sm text-gray-900 truncate">
-                          {item.name}
-                        </h3>
-                        <p className="text-xs text-gray-500">
-                          {item.unit || item.category}
-                        </p>
-                      </div>
-                      <button
-                        onClick={() => removeItem(item.id)}
-                        className="text-gray-400 hover:text-red-500 transition text-sm p-1"
-                        title="Remove item"
+              {cart.map((item) => {
+                const product = item.product || item;
+                const productId = getCleanProductId(item);
+                const imageUrl =
+                  product.imageUrl ||
+                  product.image?.url ||
+                  (typeof product.image === "string" ? product.image : null);
+                const unitPrice = Number(product.price || item.price || 0);
+                const quantity = Number(item.quantity || 1);
+                const isBusy = updatingId === productId;
+
+                return (
+                  <div
+                    key={productId}
+                    className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex gap-4 items-center"
+                  >
+                    <div className="w-20 h-20 rounded-xl bg-gray-100 flex-shrink-0 overflow-hidden flex items-center justify-center">
+                      {imageUrl ? (
+                        <img
+                          src={imageUrl}
+                          alt={product.name || "Product"}
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            e.target.style.display = "none";
+                            e.target.nextSibling.style.display = "flex";
+                          }}
+                        />
+                      ) : null}
+                      <div
+                        className={`w-full h-full flex items-center justify-center text-gray-400 text-xs ${
+                          imageUrl ? "hidden" : "flex"
+                        }`}
                       >
-                        ✕
-                      </button>
+                        🛍️
+                      </div>
                     </div>
 
-                    <div className="flex justify-between items-center mt-3">
-                      <span className="font-extrabold text-sm text-emerald-700">
-                        ₦{(item.price * item.quantity).toLocaleString()}
-                        <span className="text-[11px] font-normal text-gray-400 ml-1">
-                          (₦{item.price.toLocaleString()} ea)
-                        </span>
-                      </span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <h3 className="font-bold text-sm text-gray-900 truncate">
+                            {product.name}
+                          </h3>
+                          <p className="text-xs text-gray-500">
+                            {product.unit ||
+                              product.category?.name ||
+                              product.category ||
+                              "Grocery"}
+                          </p>
+                        </div>
+                        <button
+                          disabled={isBusy}
+                          onClick={() => handleRemoveItem(productId)}
+                          className="text-gray-400 hover:text-red-500 transition text-sm p-1 disabled:opacity-40"
+                          title="Remove item"
+                        >
+                          ✕
+                        </button>
+                      </div>
 
-                      {/* Quantity Controls */}
-                      <div className="flex items-center border border-gray-200 rounded-xl bg-gray-50 overflow-hidden">
-                        <button
-                          onClick={() => handleQuantity(item.id, -1)}
-                          className="px-2.5 py-1 text-sm font-bold text-gray-600 hover:bg-gray-200 transition"
-                        >
-                          -
-                        </button>
-                        <span className="px-3 text-xs font-bold text-gray-800">
-                          {item.quantity}
+                      <div className="flex justify-between items-center mt-3">
+                        <span className="font-extrabold text-sm text-emerald-700">
+                          ₦{(unitPrice * quantity).toLocaleString()}
+                          <span className="text-[11px] font-normal text-gray-400 ml-1">
+                            (₦{unitPrice.toLocaleString()} ea)
+                          </span>
                         </span>
-                        <button
-                          onClick={() => handleQuantity(item.id, 1)}
-                          className="px-2.5 py-1 text-sm font-bold text-gray-600 hover:bg-gray-200 transition"
-                        >
-                          +
-                        </button>
+
+                        <div className="flex items-center border border-gray-200 rounded-xl bg-gray-50 overflow-hidden">
+                          <button
+                            disabled={isBusy}
+                            onClick={() => handleRemoveQuantity(productId)}
+                            className="px-2.5 py-1 text-sm font-bold text-gray-600 hover:bg-gray-200 transition disabled:opacity-40"
+                          >
+                            -
+                          </button>
+                          <span className="px-3 text-xs font-bold text-gray-800">
+                            {isBusy ? "..." : quantity}
+                          </span>
+                          <button
+                            disabled={isBusy}
+                            onClick={() => handleAddQuantity(productId)}
+                            className="px-2.5 py-1 text-sm font-bold text-gray-600 hover:bg-gray-200 transition disabled:opacity-40"
+                          >
+                            +
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
-            {/* Summary Sidebar */}
             <div className="space-y-4">
               <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm space-y-4">
                 <h2 className="text-sm font-bold text-gray-900 border-b border-gray-100 pb-3">
@@ -226,7 +396,6 @@ export default function Cart() {
                   </div>
                 </div>
 
-                {/* Promo Code Input */}
                 <form onSubmit={applyPromo} className="pt-2">
                   <div className="flex gap-2">
                     <input
@@ -257,15 +426,16 @@ export default function Cart() {
 
                 <button
                   onClick={() =>
-                    alert("Proceeding to teammate checkout slide!")
+                    navigate("/checkout", {
+                      state: { grandTotal, subtotal, discount, deliveryFee },
+                    })
                   }
-                  className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md transition active:scale-95"
+                  className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md transition active:scale-95 cursor-pointer"
                 >
                   Proceed to Checkout (₦{grandTotal.toLocaleString()})
                 </button>
               </div>
 
-              {/* Trust Badge */}
               <div className="bg-emerald-50 rounded-2xl p-4 flex items-center gap-3">
                 <span className="text-xl">🛡️</span>
                 <p className="text-[11px] text-emerald-900 leading-tight">

@@ -23,7 +23,6 @@ export default function AdminRegister() {
     try {
       setLoading(true);
 
-      // Explicitly send role: "admin" so the backend saves it as admin
       const payload = {
         ...formData,
         role: "admin",
@@ -31,7 +30,6 @@ export default function AdminRegister() {
 
       const res = await registerUser(payload);
 
-      // Support ApiResponse structure from backend
       const token = res.data?.token || res.token || res.data?.data?.token;
       const user = res.data?.user || res.user || res.data?.data?.user;
 

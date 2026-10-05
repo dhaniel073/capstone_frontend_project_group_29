@@ -1,6 +1,5 @@
 import axios from "axios";
 
-// 1. Axios instance with the correct /api/v1 prefix
 const API = axios.create({
   baseURL: "http://localhost:5000/api",
   headers: {
@@ -8,7 +7,6 @@ const API = axios.create({
   },
 });
 
-// Interceptor automatically attaches token to every authenticated request
 API.interceptors.request.use((config) => {
   const token = localStorage.getItem("token");
   if (token) {
@@ -17,7 +15,6 @@ API.interceptors.request.use((config) => {
   return config;
 });
 
-// --- AUTH API ---
 export const loginUser = async (credentials) => {
   const response = await API.post("/auth/login", credentials);
   return response.data;
@@ -28,7 +25,6 @@ export const registerUser = async (userData) => {
   return response.data;
 };
 
-// --- PRODUCTS API ---
 export const getProducts = async (params = {}) => {
   const response = await API.get("/products", { params });
   return response.data;
@@ -39,7 +35,6 @@ export const getProductById = async (id) => {
   return response.data;
 };
 
-// For creating a product with image upload via Multer/Cloudinary
 export const createProduct = async (formData) => {
   const response = await API.post("/products", formData, {
     headers: {
@@ -49,7 +44,26 @@ export const createProduct = async (formData) => {
   return response.data;
 };
 
-// --- CHECKOUT & PAYMENT API ---
+export const getCart = async () => {
+  const response = await API.get("/cart");
+  return response.data;
+};
+
+export const addOneToCart = async (productId) => {
+  const response = await API.post(`/cart/add-one/${productId}`);
+  return response.data;
+};
+
+export const removeOneFromCart = async (productId) => {
+  const response = await API.post(`/cart/remove-one/${productId}`);
+  return response.data;
+};
+
+export const deleteFromCart = async (productId) => {
+  const response = await API.delete(`/cart/${productId}`);
+  return response.data;
+};
+
 export const initializeCheckout = async (checkoutData) => {
   const response = await API.post("/checkout/initialize", checkoutData);
   return response.data;
