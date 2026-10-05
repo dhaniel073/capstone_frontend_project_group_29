@@ -6,7 +6,8 @@ import Home from "./Home";
 import Cart from "./Cart";
 import AddProduct from "./AddProduct";
 import AdminRegister from "./AdminRegister";
-import Profile from "./Profile"; // Adjust path as needed
+import Profile from "./Profile"; 
+import Checkout from "./Checkout";
 
 export default function App() {
   return (
@@ -19,6 +20,7 @@ export default function App() {
         <Route path="/admin/add-product" element={<AddProduct />} />
         <Route path="/admin/register" element={<AdminRegister />} />
         <Route path="/profile" element={<Profile />} />
+        <Route path="/checkout" element={<Checkout />} />
         <Route path="/" element={<Navigate to="/home" replace />} />
       </Routes>
     </BrowserRouter>
