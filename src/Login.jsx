@@ -172,16 +172,7 @@ export default function Login() {
             Sign Up
           </Link>
         </p>
-        {/* Existing customer register link */}
-        <p className="text-center text-xs text-gray-500 mt-6">
-          Don't have an account?{" "}
-          <Link
-            to="/register"
-            className="text-emerald-600 font-semibold hover:underline"
-          >
-            Sign Up
-          </Link>
-        </p>
+       
 
         {/* Dedicated Admin Registration Switcher */}
         <div className="mt-4 pt-4 border-t border-gray-100 text-center">
