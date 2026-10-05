@@ -1,1 +1,9 @@
-@import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Sets a soft, cozy off-white/cream background across all pages */
+body {
+  background-color: #FAF8F5;
+  color: #2D2A26;
+}
