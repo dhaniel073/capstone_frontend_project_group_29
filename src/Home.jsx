@@ -1,71 +1,17 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { getProducts } from "./api";
+import { getProducts, getCart, addOneToCart } from "./api";
 
-const INITIAL_PRODUCTS = [
-  {
-    id: 1,
-    name: "Fresh Organic Bananas",
-    category: "Fruits & Veggies",
-    price: 2500,
-    unit: "1 bunch (approx. 1kg)",
-    image:
-      "https://images.unsplash.com/photo-1571771894821-ce9b6c11b08e?auto=format&fit=crop&w=600&q=80",
-  },
-  {
-    id: 2,
-    name: "Golden Sliced Bread",
-    category: "Bakery",
-    price: 1800,
-    unit: "800g Loaf",
-    image:
-      "https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=600&q=80",
-  },
-  {
-    id: 3,
-    name: "Farm Fresh Whole Eggs",
-    category: "Dairy & Eggs",
-    price: 4500,
-    unit: "Crate of 30",
-    image:
-      "https://images.unsplash.com/photo-1582722872445-44dc5f7e3c8f?auto=format&fit=crop&w=600&q=80",
-  },
-  {
-    id: 4,
-    name: "Ripe Red Tomatoes",
-    category: "Fruits & Veggies",
-    price: 3200,
-    unit: "2kg Basket",
-    image:
-      "https://images.unsplash.com/photo-1592924357228-91a4daadcfea?auto=format&fit=crop&w=600&q=80",
-  },
-  {
-    id: 5,
-    name: "Pure Full Cream Milk",
-    category: "Dairy & Eggs",
-    price: 2100,
-    unit: "1 Litre Pack",
-    image:
-      "https://images.unsplash.com/photo-1550583724-b2692b85b150?auto=format&fit=crop&w=600&q=80",
-  },
-  {
-    id: 6,
-    name: "Chilled Fruit Juice Blend",
-    category: "Drinks & Snacks",
-    price: 1950,
-    unit: "1 Litre Bottle",
-    image:
-      "https://images.unsplash.com/photo-1613478223719-2ab802602423?auto=format&fit=crop&w=600&q=80",
-  },
-];
-
-const CATEGORIES = [
+const BASE_CATEGORIES = [
   "All",
   "Fruits & Veggies",
   "Dairy & Eggs",
   "Bakery",
   "Drinks & Snacks",
 ];
+
+const isObjectId = (val) =>
+  typeof val === "string" && /^[0-9a-fA-F]{24}$/.test(val);
 
 export default function Home() {
   const navigate = useNavigate();
@@ -81,37 +27,44 @@ export default function Home() {
     localStorage.getItem("user") || '{"name": "Customer"}',
   );
 
-  // Live Backend Fetch with Local Fallback
+  useEffect(() => {
+    const syncCart = async () => {
+      try {
+        const res = await getCart();
+        const serverItems =
+          res?.data?.cart?.items ||
+          res?.data?.items ||
+          res?.cart?.items ||
+          res?.items ||
+          (Array.isArray(res?.data)
+            ? res.data
+            : Array.isArray(res)
+              ? res
+              : null);
+
+        if (serverItems && serverItems.length > 0) {
+          setCart(serverItems);
+          localStorage.setItem("cart", JSON.stringify(serverItems));
+        }
+      } catch (err) {
+        
+      }
+    };
+    syncCart();
+  }, []);
+
   useEffect(() => {
     const fetchCatalog = async () => {
       try {
         setLoading(true);
         const res = await getProducts();
-
-        // Normalize backend data format (res, res.data, or res.data.products)
         const serverProducts = Array.isArray(res)
           ? res
-          : res.data?.products || res.data || [];
-
-       if (serverProducts.length > 0) {
-  setProducts([...serverProducts, ...INITIAL_PRODUCTS]);
-
-        } else {
-          // If the database is empty, fall back to initial demo catalog
-          const custom = JSON.parse(
-            localStorage.getItem("custom_products") || "[]",
-          );
-          setProducts([...custom, ...INITIAL_PRODUCTS]);
-        }
+          : res?.data?.products || res?.data || [];
+        setProducts(serverProducts);
       } catch (err) {
-        console.warn(
-          "Backend not reached, using local catalog fallback:",
-          err.message,
-        );
-        const custom = JSON.parse(
-          localStorage.getItem("custom_products") || "[]",
-        );
-        setProducts([...custom, ...INITIAL_PRODUCTS]);
+        console.error("Failed to load products from server:", err.message);
+        setProducts([]);
       } finally {
         setLoading(false);
       }
@@ -123,36 +76,63 @@ export default function Home() {
   const handleLogout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
+    localStorage.removeItem("cart");
     navigate("/login");
   };
 
-  const addToCart = (product) => {
+  const addToCart = async (product) => {
     const productId = product._id || product.id;
+
+    
     setCart((prev) => {
-      const existing = prev.find((item) => (item._id || item.id) === productId);
+      const existing = prev.find((item) => {
+        const id = item.product?._id || item.productId || item._id || item.id;
+        return id === productId;
+      });
+
       let updated;
       if (existing) {
-        updated = prev.map((item) =>
-          (item._id || item.id) === productId
-            ? { ...item, quantity: item.quantity + 1 }
-            : item,
-        );
+        updated = prev.map((item) => {
+          const id = item.product?._id || item.productId || item._id || item.id;
+          return id === productId
+            ? { ...item, quantity: (item.quantity || 1) + 1 }
+            : item;
+        });
       } else {
-        updated = [...prev, { ...product, id: productId, quantity: 1 }];
+        updated = [...prev, { product, quantity: 1, _id: productId }];
       }
       localStorage.setItem("cart", JSON.stringify(updated));
       return updated;
     });
+
+    try {
+      await addOneToCart(productId);
+    } catch (err) {
+      console.warn("Could not sync item to server cart:", err.message);
+    }
   };
 
-  const totalCartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
-  const subtotal = cart.reduce(
-    (sum, item) => sum + item.price * item.quantity,
+  const totalCartCount = cart.reduce(
+    (sum, item) => sum + (item.quantity || 1),
     0,
+  );
+  const subtotal = cart.reduce((sum, item) => {
+    const price = Number(item.product?.price || item.price || 0);
+    return sum + price * (item.quantity || 1);
+  }, 0);
+
+  const dynamicCategories = products
+    .map((p) => p.category?.name || p.category)
+    .filter((cat) => cat && !isObjectId(cat));
+
+  const availableCategories = Array.from(
+    new Set([...BASE_CATEGORIES, ...dynamicCategories]),
   );
 
   const filteredProducts = products.filter((product) => {
-    const categoryName = product.category?.name || product.category || "";
+    const rawCategory = product.category?.name || product.category || "";
+    const categoryName = isObjectId(rawCategory) ? "General" : rawCategory;
+
     const matchesCategory =
       selectedCategory === "All" || categoryName === selectedCategory;
     const matchesSearch = product.name
@@ -164,7 +144,6 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-gray-50 text-gray-800 flex flex-col justify-between">
       <div>
-        {/* Top Navbar */}
         <header className="sticky top-0 z-30 bg-white border-b border-gray-200">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
             <div className="flex items-center gap-2">
@@ -181,7 +160,6 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Search Bar */}
             <div className="flex-1 max-w-md hidden sm:block">
               <input
                 type="text"
@@ -192,9 +170,7 @@ export default function Home() {
               />
             </div>
 
-            {/* Header Actions & Profile */}
             <div className="flex items-center gap-3">
-              {/* Add Product Button for Admin */}
               <button
                 onClick={() => navigate("/admin/add-product")}
                 className="hidden sm:inline-flex items-center gap-1 text-xs font-semibold px-3 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 transition cursor-pointer"
@@ -202,7 +178,6 @@ export default function Home() {
                 + Add Product
               </button>
 
-              {/* Cart Button */}
               <button
                 onClick={() => navigate("/cart")}
                 className="relative p-2 px-3 rounded-xl bg-emerald-50 text-emerald-800 hover:bg-emerald-100 transition flex items-center gap-2 cursor-pointer"
@@ -215,7 +190,6 @@ export default function Home() {
                 )}
               </button>
 
-              {/* User Profile */}
               <div className="flex items-center gap-2 border-l border-gray-200 pl-3">
                 <div className="text-right hidden md:block">
                   <p className="text-xs font-semibold text-gray-900 leading-tight">
@@ -236,7 +210,6 @@ export default function Home() {
           </div>
         </header>
 
-        {/* Hero Banner */}
         <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="rounded-3xl bg-gradient-to-r from-emerald-700 to-teal-900 p-8 text-white relative overflow-hidden shadow-sm">
             <div className="relative z-10 max-w-xl">
@@ -254,10 +227,9 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Category Pills */}
         <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-4">
           <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none">
-            {CATEGORIES.map((cat) => (
+            {availableCategories.map((cat) => (
               <button
                 key={cat}
                 onClick={() => setSelectedCategory(cat)}
@@ -273,7 +245,6 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Products Grid */}
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-20">
           {loading ? (
             <div className="py-20 text-center">
@@ -283,13 +254,26 @@ export default function Home() {
               </p>
             </div>
           ) : filteredProducts.length === 0 ? (
-            <div className="py-20 text-center bg-white rounded-2xl border border-gray-100">
+            <div className="py-20 text-center bg-white rounded-2xl border border-gray-100 max-w-lg mx-auto shadow-sm">
+              <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-3 text-gray-400">
+                📦
+              </div>
               <p className="text-base font-bold text-gray-800">
                 No products found
               </p>
-              <p className="text-xs text-gray-500 mt-1">
-                Try another category or clear your search query.
+              <p className="text-xs text-gray-500 mt-1 px-4">
+                {products.length === 0
+                  ? "No inventory has been added to the store yet."
+                  : "No products matched your selected category or search filter."}
               </p>
+              {products.length === 0 && (
+                <button
+                  onClick={() => navigate("/admin/add-product")}
+                  className="mt-4 px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-semibold hover:bg-emerald-700 transition"
+                >
+                  Create First Product
+                </button>
+              )}
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
@@ -298,22 +282,54 @@ export default function Home() {
                 const imageUrl =
                   prod.imageUrl ||
                   prod.image?.url ||
-                  prod.image ||
-                  "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=600&q=80";
-                const catLabel =
-                  prod.category?.name || prod.category || "General";
+                  (typeof prod.image === "string" ? prod.image : null);
+
+                const rawCat = prod.category?.name || prod.category || "";
+                const catLabel = isObjectId(rawCat)
+                  ? "Grocery"
+                  : rawCat || "Grocery";
 
                 return (
                   <div
                     key={prodKey}
                     className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden flex flex-col hover:shadow-md transition"
                   >
-                    <div className="h-44 bg-gray-100 relative overflow-hidden">
-                      <img
-                        src={imageUrl}
-                        alt={prod.name}
-                        className="w-full h-full object-cover"
-                      />
+                    <div className="h-44 bg-gray-50 relative overflow-hidden flex items-center justify-center">
+                      {imageUrl ? (
+                        <img
+                          src={imageUrl}
+                          alt={prod.name}
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            e.target.style.display = "none";
+                            e.target.nextSibling.style.display = "flex";
+                          }}
+                        />
+                      ) : null}
+
+                      <div
+                        className={`w-full h-full flex-col items-center justify-center bg-gray-100 text-gray-400 ${
+                          imageUrl ? "hidden" : "flex"
+                        }`}
+                      >
+                        <svg
+                          className="w-10 h-10 stroke-current text-gray-300"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={1.5}
+                            d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                          />
+                        </svg>
+                        <span className="text-[10px] text-gray-400 mt-1 font-medium">
+                          No image available
+                        </span>
+                      </div>
+
                       <span className="absolute top-3 left-3 bg-white/90 backdrop-blur-sm text-[11px] font-bold text-gray-700 px-2 py-0.5 rounded-md shadow-sm">
                         {catLabel}
                       </span>
@@ -325,7 +341,7 @@ export default function Home() {
                           {prod.name}
                         </h3>
                         <p className="text-xs text-gray-500 mt-0.5">
-                          {prod.unit || prod.description || "Fresh in store"}
+                          {prod.unit || prod.description || "In stock"}
                         </p>
                       </div>
 
@@ -349,7 +365,6 @@ export default function Home() {
         </main>
       </div>
 
-      {/* Sticky Bottom Bar */}
       {totalCartCount > 0 && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-gray-900 text-white px-6 py-3.5 rounded-2xl shadow-2xl flex items-center gap-6 z-40 border border-gray-800">
           <div>
@@ -369,7 +384,6 @@ export default function Home() {
         </div>
       )}
 
-      {/* Footer */}
       <footer className="bg-white border-t border-gray-200 mt-16 pt-12 pb-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pb-10 border-b border-gray-100">
@@ -435,7 +449,7 @@ export default function Home() {
                 Categories
               </h5>
               <ul className="space-y-2 text-xs text-gray-500">
-                {CATEGORIES.slice(1).map((cat) => (
+                {BASE_CATEGORIES.slice(1).map((cat) => (
                   <li key={cat}>
                     <button
                       onClick={() => {

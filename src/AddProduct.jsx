@@ -38,7 +38,6 @@ export default function AddProduct() {
     setStatusMsg({ type: "", text: "" });
 
     try {
-      // 1. Build multipart FormData for Multer & Cloudinary upload pipeline
       const data = new FormData();
       data.append("name", formData.name);
       data.append("category", formData.category);
@@ -54,7 +53,6 @@ export default function AddProduct() {
         data.append("image", imageFile); // Matched to upload.single("image") in the backend
       }
 
-      // 2. Call the centralized Axios helper in src/api.js
       await createProduct(data);
 
       setStatusMsg({
@@ -69,7 +67,6 @@ export default function AddProduct() {
         err.message,
       );
 
-      // 3. Graceful fallback for local demo or when offline
       const localProduct = {
         id: Date.now(),
         name: formData.name,
@@ -94,7 +91,7 @@ export default function AddProduct() {
         type: "success",
         text: "Added product to local catalog view!",
       });
-      //setTimeout(() => navigate("/home"), 1200);
+      
     } finally {
       setLoading(false);
     }

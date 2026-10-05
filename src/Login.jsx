@@ -21,7 +21,6 @@ export default function Login() {
       setLoading(true);
       const res = await loginUser(formData);
 
-      // Extract token and user details regardless of response wrapper
       const token = res.data?.token || res.token;
       const user = res.data?.user ||
         res.user || {
@@ -42,7 +41,6 @@ export default function Login() {
         err.message,
       );
 
-      // Local fallback for offline testing or demo environments
       if (!err.response) {
         const fallbackUser = {
           name: formData.email.split("@")[0] || "Customer",
