@@ -202,7 +202,7 @@ export default function Home() {
                 + Add Product
               </button>
 
-              {/* Cart Button */}
+                            {/* Cart Button */}
               <button
                 onClick={() => navigate("/cart")}
                 className="relative p-2 px-3 rounded-xl bg-emerald-50 text-emerald-800 hover:bg-emerald-100 transition flex items-center gap-2 cursor-pointer"
@@ -215,23 +215,25 @@ export default function Home() {
                 )}
               </button>
 
-              {/* User Profile */}
-              <div className="flex items-center gap-2 border-l border-gray-200 pl-3">
+              {/* User Profile / Account Link */}
+              <button
+                onClick={() => navigate("/profile")}
+                className="flex items-center gap-2 border-l border-gray-200 pl-3 group text-left cursor-pointer hover:opacity-80 transition"
+                title="View Profile"
+              >
                 <div className="text-right hidden md:block">
-                  <p className="text-xs font-semibold text-gray-900 leading-tight">
+                  <p className="text-xs font-semibold text-gray-900 group-hover:text-emerald-700 transition leading-tight">
                     {user.name}
                   </p>
-                  <button
-                    onClick={handleLogout}
-                    className="text-[11px] text-red-500 hover:underline font-medium cursor-pointer"
-                  >
-                    Log out
-                  </button>
+                  <span className="text-[10px] text-gray-500 font-medium block">
+                    View Profile
+                  </span>
                 </div>
-                <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-xs uppercase">
+                <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-xs uppercase shadow-sm border border-emerald-200">
                   {user.name ? user.name.charAt(0) : "U"}
                 </div>
-              </div>
+              </button>
+              
             </div>
           </div>
         </header>
