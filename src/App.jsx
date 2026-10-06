@@ -5,6 +5,10 @@ import Login from "./Login";
 import Profile from "./Profile";
 import ResetPassword from "./ResetPassword";
 import Checkout from "./Checkout";
+import Home from "./Home";
+import Cart from "./Cart";
+import AddProduct from "./AddProduct";
+import AdminRegister from "./AdminRegister";
 
 function ProtectedRoute({ children }) {
   const token = localStorage.getItem("token");
@@ -12,8 +16,6 @@ function ProtectedRoute({ children }) {
 }
 
 export default function App() {
-  const hasToken = Boolean(localStorage.getItem("token"));
-
   return (
     <BrowserRouter>
       <Routes>
@@ -28,6 +30,10 @@ export default function App() {
             </ProtectedRoute>
           }
         />
+        <Route path="/home" element={<Home />} />
+        <Route path="/cart" element={<Cart />} />
+        <Route path="/admin/add-product" element={<AddProduct />} />
+        <Route path="/admin/register" element={<AdminRegister />} />
         <Route
           path="/profile"
           element={
@@ -36,10 +42,7 @@ export default function App() {
             </ProtectedRoute>
           }
         />
-        <Route
-          path="/"
-          element={<Navigate to={hasToken ? "/profile" : "/login"} replace />}
-        />
+        <Route path="/" element={<Navigate to="/home" replace />} />
       </Routes>
     </BrowserRouter>
   );

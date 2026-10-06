@@ -1,8 +1,7 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import API from "./api";
 
-const DELIVERY_FEE = 500;
+const DELIVERY_FEE = 1200;
 
 function formatNaira(amount) {
   return `NGN ${Number(amount).toLocaleString("en-NG")}`;
@@ -24,10 +23,28 @@ function readUser() {
   }
 }
 
+function readLocalCart() {
+  try {
+    const savedCart = JSON.parse(localStorage.getItem("cart") || "[]");
+    if (!Array.isArray(savedCart)) return [];
+    return savedCart.map((item) => ({
+      product: {
+        _id: item._id || item.id,
+        name: item.name,
+        price: Number(item.price) || 0,
+        imageUrl: item.imageUrl || item.image?.url || item.image || "",
+      },
+      quantity: Number(item.quantity) || 1,
+    }));
+  } catch {
+    return [];
+  }
+}
+
 export default function Checkout() {
   const navigate = useNavigate();
   const user = readUser();
-  const [cart, setCart] = useState(null);
+  const [cart] = useState(() => ({ items: readLocalCart() }));
   const [address, setAddress] = useState(() => readSavedAddress());
   const [addressForm, setAddressForm] = useState(() => ({
     name: user.name || "",
@@ -36,30 +53,8 @@ export default function Checkout() {
     phone: address?.phone || "",
   }));
   const [editingAddress, setEditingAddress] = useState(!address);
-  const [loadingCart, setLoadingCart] = useState(true);
+  const loadingCart = false;
   const [error, setError] = useState("");
-
-  useEffect(() => {
-    let active = true;
-    API.get("/cart")
-      .then((response) => {
-        if (active) setCart(response.data.data);
-      })
-      .catch((requestError) => {
-        if (active) {
-          setError(
-            requestError.response?.data?.message ||
-              "We could not load your cart. Please try again.",
-          );
-        }
-      })
-      .finally(() => {
-        if (active) setLoadingCart(false);
-      });
-    return () => {
-      active = false;
-    };
-  }, []);
 
   const items = cart?.items || [];
   const itemCount = items.reduce((count, item) => count + item.quantity, 0);
@@ -103,7 +98,7 @@ export default function Checkout() {
       return;
     }
     setError(
-      "Payment is unavailable: the order service currently verifies the cart subtotal only, but this checkout includes a delivery fee. Please contact support.",
+      "Payment cannot start yet because checkout is not connected to the local shopping cart. Your cart is ready, but the order service needs to support these items before payment can be processed.",
     );
     return;
 
@@ -113,14 +108,14 @@ export default function Checkout() {
     <div className="checkout-page">
       <header className="checkout-header">
         <div className="checkout-header-inner">
-          <Link className="checkout-brand" to="/profile">
+          <Link className="checkout-brand" to="/home">
             <span aria-hidden="true">S</span> SUPERMARKET
           </Link>
           <nav className="checkout-nav" aria-label="Main navigation">
-            <Link to="/profile">Home</Link>
-            <a href="/profile#categories">Categories</a>
-            <a href="/profile#deals">Deals</a>
-            <a href="/profile#about">About</a>
+            <Link to="/home">Home</Link>
+            <a href="/home#categories">Categories</a>
+            <a href="/home#deals">Deals</a>
+            <a href="/home#about">About</a>
           </nav>
           <span className="checkout-cart-count">Cart ({itemCount})</span>
           <Link className="checkout-account" to="/profile">
@@ -213,7 +208,7 @@ export default function Checkout() {
             <aside className="checkout-summary" aria-labelledby="summary-title">
               <h2 id="summary-title">Order Summary</h2>
               {items.length === 0 ? (
-                <p className="empty-cart">Your cart is empty. <Link to="/profile">Continue shopping</Link></p>
+                <p className="empty-cart">Your cart is empty. <Link to="/home">Continue shopping</Link></p>
               ) : (
                 <ul className="summary-items">
                   {items.map((item) => (

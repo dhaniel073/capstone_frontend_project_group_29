@@ -3,7 +3,7 @@
 :root {
   font-family: "Segoe UI", Arial, sans-serif;
   color: #202633;
-  background: #f4f5f7;
+  background: #f9fafb;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
 }
@@ -46,7 +46,7 @@ a {
   display: grid;
   place-items: center;
   padding: 32px 20px;
-  background: #f4f5f7;
+  background: #f9fafb;
 }
 
 .reset-card {
@@ -72,7 +72,7 @@ a {
   margin: 0 auto 6px;
   border-radius: 50%;
   background: #d0f8e6;
-  color: #009c70;
+  color: #059669;
   font-size: 14px;
 }
 
@@ -122,8 +122,8 @@ a {
 
 .reset-input:focus,
 .reset-password-field input:focus {
-  border-color: #5148e5;
-  box-shadow: 0 0 0 2px rgb(81 72 229 / 12%);
+  border-color: #059669;
+  box-shadow: 0 0 0 2px rgb(5 150 105 / 12%);
 }
 
 .reset-password-field button {
@@ -133,7 +133,7 @@ a {
   height: 100%;
   border: 0;
   background: transparent;
-  color: #5148e5;
+  color: #059669;
   cursor: pointer;
   font-size: 9px;
 }
@@ -162,13 +162,13 @@ a {
   flex: 0 0 12px;
   place-items: center;
   border-radius: 50%;
-  background: #009c70;
+  background: #059669;
   color: #fff;
   font-size: 9px;
 }
 
 .password-rules .rule-passed span {
-  background: #5148e5;
+  background: #059669;
 }
 
 .reset-submit {
@@ -177,14 +177,14 @@ a {
   margin-top: 21px;
   border: 0;
   border-radius: 28px;
-  background: #5148e5;
+  background: #059669;
   color: #fff;
   cursor: pointer;
   font-size: 12px;
 }
 
 .reset-submit:hover {
-  background: #4338ca;
+  background: #047857;
 }
 
 .reset-submit:disabled {
@@ -219,7 +219,7 @@ a {
 
 .checkout-page {
   min-height: 100vh;
-  background: #fff;
+  background: #f9fafb;
   color: #202633;
 }
 
@@ -242,7 +242,7 @@ a {
   flex: 0 0 auto;
   align-items: center;
   gap: 8px;
-  color: #5148e5;
+  color: #059669;
   font-size: 14px;
   text-decoration: none;
 }
@@ -340,8 +340,8 @@ a {
 
 .checkout-steps .step-done span,
 .checkout-steps .step-active span {
-  border-color: #5148e5;
-  background: #5148e5;
+  border-color: #059669;
+  background: #059669;
   color: #fff;
 }
 
@@ -435,8 +435,8 @@ a {
 
 .address-form input:focus,
 .order-notes textarea:focus {
-  border-color: #5148e5;
-  box-shadow: 0 0 0 2px rgb(81 72 229 / 12%);
+  border-color: #059669;
+  box-shadow: 0 0 0 2px rgb(0 156 112 / 12%);
 }
 
 .address-form-row {
@@ -450,7 +450,7 @@ a {
   padding: 9px 15px;
   border: 0;
   border-radius: 18px;
-  background: #5148e5;
+  background: #059669;
   color: #fff;
   cursor: pointer;
   font-size: 10px;
@@ -466,10 +466,10 @@ a {
   align-items: center;
   justify-content: space-between;
   padding: 13px 19px;
-  border: 2px solid #00a9e0;
+  border: 2px solid #059669;
   border-radius: 10px;
-  background: #eef7ff;
-  color: #00a4d8;
+  background: #ecfdf5;
+  color: #047857;
 }
 
 .paystack-choice div {
@@ -491,7 +491,7 @@ a {
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  background: #00a9e0;
+  background: #059669;
 }
 
 .order-notes {
@@ -558,7 +558,7 @@ a {
 }
 
 .summary-total strong {
-  color: #009c70;
+  color: #059669;
   font-weight: 500;
 }
 
@@ -567,14 +567,14 @@ a {
   min-height: 44px;
   border: 0;
   border-radius: 25px;
-  background: #0ba6d5;
+  background: #059669;
   color: #fff;
   cursor: pointer;
   font-size: 11px;
 }
 
 .pay-button:hover:not(:disabled) {
-  background: #078db8;
+  background: #047857;
 }
 
 .pay-button:disabled {
@@ -594,7 +594,7 @@ a {
 }
 
 .empty-cart a {
-  color: #5148e5;
+  color: #059669;
 }
 
 .checkout-loading {
@@ -612,7 +612,7 @@ a {
     display: block;
     min-height: 100dvh;
     padding: 0;
-    background: #fff;
+    background: #f9fafb;
   }
 
   .reset-card {
@@ -770,7 +770,7 @@ a {
   }
 
   .checkout-steps .step-done::after {
-    background: #5148e5 !important;
+    background: #059669 !important;
   }
 
   .checkout-steps li span {
@@ -838,7 +838,7 @@ a {
   .subtle-button {
     padding: 5px 0;
     background: transparent;
-    color: #5148e5;
+    color: #059669;
     font-size: 13px;
   }
 
@@ -935,7 +935,7 @@ a {
   }
 
   .mobile-checkout-total strong {
-    color: #009c70;
+    color: #059669;
     font-size: 20px;
     font-weight: 500;
   }

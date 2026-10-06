@@ -223,6 +223,20 @@ export default function Register() {
             Log In
           </Link>
         </p>
+
+
+        {/* Dedicated Admin Registration Switcher */}
+        <div className="mt-4 pt-4 border-t border-gray-100 text-center">
+          <p className="text-xs text-gray-500">
+            Store employee or manager?{" "}
+            <Link
+              to="/admin/register"
+              className="text-emerald-700 font-semibold hover:underline inline-block mt-0.5"
+            >
+              Register as Admin &rarr;
+            </Link>
+          </p>
+        </div>
       </div>
     </div>
   );
