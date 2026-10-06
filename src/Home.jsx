@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { getProducts } from "./api";
 
 const INITIAL_PRODUCTS = [
@@ -218,9 +218,12 @@ export default function Home() {
               {/* User Profile */}
               <div className="flex items-center gap-2 border-l border-gray-200 pl-3">
                 <div className="text-right hidden md:block">
-                  <p className="text-xs font-semibold text-gray-900 leading-tight">
-                    {user.name}
-                  </p>
+                  <Link
+                    to="/profile"
+                    className="block text-xs font-semibold leading-tight text-gray-900 hover:text-emerald-700"
+                  >
+                    {user.name || "My Profile"}
+                  </Link>
                   <button
                     onClick={handleLogout}
                     className="text-[11px] text-red-500 hover:underline font-medium cursor-pointer"
@@ -228,9 +231,13 @@ export default function Home() {
                     Log out
                   </button>
                 </div>
-                <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-xs uppercase">
+                <Link
+                  to="/profile"
+                  aria-label="Open your profile"
+                  className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-xs uppercase no-underline"
+                >
                   {user.name ? user.name.charAt(0) : "U"}
-                </div>
+                </Link>
               </div>
             </div>
           </div>
@@ -463,6 +470,14 @@ export default function Home() {
                   >
                     View Basket
                   </button>
+                </li>
+                <li>
+                  <Link
+                    to="/profile"
+                    className="hover:text-emerald-600 transition"
+                  >
+                    My Profile
+                  </Link>
                 </li>
                 <li>
                   <button

@@ -1,18 +1,19 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 
 export default function Cart() {
   const navigate = useNavigate();
-  const [cart, setCart] = useState([]);
+  const [cart, setCart] = useState(() => {
+    try {
+      const savedCart = JSON.parse(localStorage.getItem("cart") || "[]");
+      return Array.isArray(savedCart) ? savedCart : [];
+    } catch {
+      return [];
+    }
+  });
   const [promoCode, setPromoCode] = useState("");
   const [discount, setDiscount] = useState(0);
   const [promoError, setPromoError] = useState("");
-
-  // Load existing cart items from localStorage on mount
-  useEffect(() => {
-    const savedCart = JSON.parse(localStorage.getItem("cart") || "[]");
-    setCart(savedCart);
-  }, []);
 
   // Sync to localStorage whenever cart changes
   const updateStorage = (updatedCart) => {
@@ -256,9 +257,7 @@ export default function Cart() {
                 </form>
 
                 <button
-                  onClick={() =>
-                    alert("Proceeding to teammate checkout slide!")
-                  }
+                  onClick={() => navigate("/checkout")}
                   className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md transition active:scale-95"
                 >
                   Proceed to Checkout (₦{grandTotal.toLocaleString()})
