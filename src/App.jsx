@@ -3,6 +3,8 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Register from "./Register";
 import Login from "./Login";
 import Profile from "./Profile";
+import ResetPassword from "./ResetPassword";
+import Checkout from "./Checkout";
 
 function ProtectedRoute({ children }) {
   const token = localStorage.getItem("token");
@@ -17,6 +19,15 @@ export default function App() {
       <Routes>
         <Route path="/register" element={<Register />} />
         <Route path="/login" element={<Login />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
+        <Route
+          path="/checkout"
+          element={
+            <ProtectedRoute>
+              <Checkout />
+            </ProtectedRoute>
+          }
+        />
         <Route
           path="/profile"
           element={

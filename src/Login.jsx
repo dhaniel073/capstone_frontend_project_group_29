@@ -70,9 +70,12 @@ export default function Login() {
               <label className="text-xs font-semibold text-gray-700">
                 Password
               </label>
-              <span className="text-xs font-medium text-emerald-600 hover:underline cursor-pointer">
+              <Link
+                to="/reset-password"
+                className="text-xs font-medium text-emerald-600 hover:underline"
+              >
                 Forgot Password?
-              </span>
+              </Link>
             </div>
             <div className="relative">
               <input
